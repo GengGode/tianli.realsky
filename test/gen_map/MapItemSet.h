@@ -14,9 +14,12 @@ class ItemInface
 {
 public:
     ItemInface() = default;
-    ItemInface(const cv::Point2d &pos) : pos(pos) {}
+    ItemInface(const cv::Point2d &pos) : pos_(pos) {}
     ~ItemInface() = default;
-    cv::Point2d pos;
+    virtual cv::Point2d pos() { return pos_; }
+
+private:
+    cv::Point2d pos_;
 };
 
 /// @brief 用来物品项集合的构造和查找接口
@@ -36,6 +39,17 @@ public:
     /// @brief 判断物品项集合是否为空
     /// @return
     virtual bool empty() { return true; }
+};
+
+class KeyPointObject : public ItemInface
+{
+public:
+    KeyPointObject(std::shared_ptr<cv::KeyPoint> keypoint, size_t index) : ItemInface(keypoint->pt), kp(keypoint), index(index) {}
+    KeyPointObject(cv::KeyPoint keypoint, size_t index) : ItemInface(keypoint.pt), kp(std::make_shared<cv::KeyPoint>(keypoint)), index(index) {}
+    ~KeyPointObject() = default;
+    cv::Point2d pos() override { return kp->pt; }
+    std::shared_ptr<cv::KeyPoint> kp;
+    size_t index = 0;
 };
 
 /// @brief 用来存储物品项的详细信息的实现类
@@ -118,7 +132,7 @@ public:
             auto copy_items = parent->items;
             for (auto &item : copy_items)
             {
-                if (is_intersect(item->pos))
+                if (is_intersect(item->pos()))
                     this->items.push_back(item);
                 // remove item from parent
                 parent->items.remove(item);
@@ -183,7 +197,7 @@ public:
             if (item == nullptr)
                 return false;
             // 如果当前节点与物品不相交，直接返回
-            if (is_intersect(item->pos) == false)
+            if (is_intersect(item->pos()) == false)
                 return false;
             item_set_size++;
             // 如果当前节点是叶子节点
@@ -224,7 +238,7 @@ public:
                 }
                 // 将范围与物品相交的物品插入到结果中
                 for (auto &item : items)
-                    if (rect.contains(item->pos))
+                    if (rect.contains(item->pos()))
                         rect_items.push_back(item);
                 return rect_items;
             }
@@ -297,7 +311,7 @@ public:
         std::cout << space << "node size: " << node->item_set_size << std::endl;
         std::cout << space << "node node count: " << node->counts() << std::endl;
         for (auto &item : node->items)
-            std::cout << space << "\titem: " << item->pos << std::endl;
+            std::cout << space << "\titem: " << item->pos() << std::endl;
         for (auto &child : node->childs)
             cout(child, depth + 1);
     }
@@ -330,7 +344,7 @@ public:
             cv::rectangle(img, rect, cv::Scalar(255, 255, depth * 8), 1, cv ::LINE_AA);
             cv::circle(img, node->center / scale + pos_offset, 1, cv::Scalar(0, depth * 8, 255), 1, cv::LINE_AA);
             for (auto &item : node->items)
-                cv::circle(img, item->pos / scale + pos_offset, 1, cv::Scalar(0, 255, depth * 8), 1, cv::LINE_AA);
+                cv::circle(img, item->pos() / scale + pos_offset, 1, cv::Scalar(0, 255, depth * 8), 1, cv::LINE_AA);
             cv::imshow("tree", img);
             cv::waitKey(1);
         };

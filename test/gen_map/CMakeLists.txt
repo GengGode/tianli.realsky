@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
 project(gen_map)
 
 
@@ -9,6 +8,12 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 add_executable(${PROJECT_NAME} main.cpp  BlockMapResource.h) 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
+# copy map/*.png to exe folder
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/map/"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/map")
+
 # copy dll to exe folder
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -18,6 +23,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 else()
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/bin/opencv_world480d.dll"
+        "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/bin/opencv_world480.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
 endif()

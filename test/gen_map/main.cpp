@@ -1,35 +1,55 @@
 #include <iostream>
 #include "BlockMapResource.h"
 #include "MapItemSet.h"
+#include <direct.h> // add this header file
 
 #include <opencv2/xfeatures2d.hpp>
 
 #include <meojson/include/json.hpp>
+#include <filesystem>
+#include <chrono>
+class track_timer
+{
+public:
+    track_timer(std::string name = "null") : start_(std::chrono::high_resolution_clock::now()), name_(name)
+    {
+        std::cout << "[" << name_ << "] begin -" << std::endl;
+    }
+    ~track_timer() { std::cout << "[" << name_ << "] end : " << elapsed() << std::endl; }
+    std::chrono::microseconds elapsed() const
+    {
+        return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_);
+    }
+
+private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+    std::string name_;
+};
+
 std::vector<cv::Point2d> from_json(std::string json_file);
 std::vector<cv::Point2d> from_txt()
 {
+    // cout current path
+    char buf[256];
+    _getcwd(buf, 256); // use _getcwd instead of getcwd
+    std::cout << buf << std::endl;
     std::vector<cv::Point2d> points;
-    std::vector<std::string> paths = {
-        "../../src/item/json_file_0.json",
-        "../../src/item/json_file_1.json",
-        "../../src/item/json_file_2.json",
-        "../../src/item/json_file_3.json",
-        "../../src/item/json_file_4.json",
-        "../../src/item/json_file_5.json",
-        "../../src/item/json_file_6.json",
-        "../../src/item/json_file_7.json",
-        "../../src/item/json_file_8.json",
-        "../../src/item/json_file_9.json",
-        "../../src/item/json_file_10.json",
-        "../../src/item/json_file_11.json",
-        "../../src/item/json_file_12.json",
-        "../../src/item/json_file_13.json",
-        "../../src/item/json_file_14.json",
-        "../../src/item/json_file_15.json",
-        "../../src/item/json_file_16.json",
-        "../../src/item/json_file_17.json",
-        "../../src/item/json_file_18.json",
-        "../../src/item/json_file_19.json"};
+    std::filesystem::path path(buf);
+    if (std::filesystem::exists(path / "save") == false)
+    {
+        std::cout << "item not exists" << std::endl;
+        return points;
+    }
+
+    std::vector<std::string> paths;
+    for (auto &p : std::filesystem::directory_iterator(path / "save"))
+    {
+        if (p.path().extension() == ".json")
+        {
+            paths.push_back(p.path().string());
+        }
+    }
+
     for (auto &path : paths)
     {
         auto point = from_json(path);
@@ -81,25 +101,104 @@ cv::Rect2d get_max_rect(BlockMapResource &quadTree)
     int max_radius_int = static_cast<int>(std::round(max_radius));
     return cv::Rect2d(-max_radius_int, -max_radius_int, max_radius_int * 2, max_radius_int * 2);
 }
+
+void gen_surf(BlockMapResource &quadTree)
+{
+
+    track_timer timer;
+    auto map = quadTree.view();
+    // save map
+    cv::imwrite("map.png", map);
+    // surf key
+    cv::Ptr<cv::xfeatures2d::SURF> surf = cv::xfeatures2d::SURF::create(400);
+    std::vector<cv::KeyPoint> keypoints;
+    cv::Mat descriptors;
+    surf->detectAndCompute(map, cv::Mat(), keypoints, descriptors);
+    // fs write
+    cv::FileStorage fs("surf.xml", cv::FileStorage::WRITE);
+    fs << "keypoints" << keypoints;
+    fs << "descriptors" << descriptors;
+    fs.release();
+}
+void test_surf_gen()
+{
+    auto map = cv::imread("map/UI_MapBack_-1_0.png");
+    cv::Ptr<cv::xfeatures2d::SURF> surf = cv::xfeatures2d::SURF::create(400);
+    cv::Rect2d rand_rect; // = cv::Rect2d(-1000, -1000, 400, 400);
+    track_timer timer(__FUNCTION__);
+    for (int i = 0; i < 100; i++)
+    {
+        rand_rect.x = 0; // rand() % 4000 - 2000;
+        rand_rect.y = 0; // rand() % 4000 - 2000;
+        rand_rect.width = 400;
+        rand_rect.height = 400;
+        // surf key
+        std::vector<cv::KeyPoint> keypoints;
+        cv::Mat descriptors;
+        // 计算关键点和描述子
+        surf->detectAndCompute(map(rand_rect), cv::Mat(), keypoints, descriptors);
+    }
+    auto time = timer.elapsed() / 100.0;
+    std::cout << "surf gen avg time : " << time << std::endl;
+}
+
+void test_tree_find(ItemSetTree &tree, cv::Mat &descriptors)
+{
+    cv::Rect2d rand_rect; // = cv::Rect2d(-1000, -1000, 400, 400);
+
+    track_timer timer(__FUNCTION__);
+    for (int i = 0; i < 10000; i++)
+    {
+        rand_rect.x = 16384 - 1024 + 232; // rand() % 4000 - 2000;
+        rand_rect.y = 12288 - 1024 + 216; // rand() % 4000 - 2000;
+        rand_rect.width = 400;
+        rand_rect.height = 400;
+        // track_timer timer("find");
+        auto result = tree.find(rand_rect);
+        std::vector<cv::KeyPoint> res_keypoints(result.size());
+        cv::Mat res_descriptor(result.size(), 64, CV_32F);
+        int index = 0;
+        for (const auto &item : result)
+        {
+            auto keypoint_ptr = std::dynamic_pointer_cast<KeyPointObject>(item);
+            // 组合关键点
+            res_keypoints[index] = *keypoint_ptr->kp;
+            // 组合描述子
+            auto descriptor = descriptors.row(keypoint_ptr->index);
+            descriptor.copyTo(res_descriptor.row(index));
+            index++;
+        }
+    }
+    auto time = timer.elapsed() / 10000.0;
+    std::cout << "find avg time : " << time << std::endl;
+}
+
+#include <opencv2/core/utils/logger.hpp>
 int main(int argc, char *argv[])
 {
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
 
     {
         // fs read
-        cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
         std::vector<cv::KeyPoint> keypoints;
         cv::Mat descriptors;
-        fs2["keypoints"] >> keypoints;
-        fs2["descriptors"] >> descriptors;
-        fs2.release();
+        {
+            track_timer timer("read surf.xml");
+            cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
+            fs2["keypoints"] >> keypoints;
+            fs2["descriptors"] >> descriptors;
+            fs2.release();
+        }
         std::vector<std::shared_ptr<ItemInface>> items;
         for (int i = 0; i < keypoints.size(); i++)
-            items.push_back(std::make_shared<ItemObject>(keypoints[i].pt, "name" + std::to_string(i)));
+            items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
         ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
 
         auto res = tree.find(tree.root->rect);
 
-        tree.print();
+        test_tree_find(tree, descriptors);
+        test_surf_gen();
+        // tree.print();
     }
 
     auto points = from_txt();
@@ -107,13 +206,14 @@ int main(int argc, char *argv[])
     for (int i = 0; i < points.size(); i++)
         items.push_back(std::make_shared<ItemObject>(points[i], "name" + std::to_string(i)));
 
-    BlockMapResource quadTree("../../src/map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
+    BlockMapResource quadTree("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
     auto map_center = quadTree.get_abs_origin();
     auto max_rect = get_max_rect(quadTree); // cv::Rect2d(quadTree.get_min_rect());
     auto origin = cv::Rect2d(quadTree.get_min_rect()).tl() - cv::Point2d(map_center);
 
     ItemSetTree tree(max_rect, items);
     {
+        track_timer timer("find rect(2000,2000)");
         auto result = tree.find_childs(cv::Rect2d(-1000, -1000, 2000, 2000));
         auto map = quadTree.view(cv::Rect2d(-1000, -1000, 2000, 2000));
         for (auto &node : result)
@@ -121,7 +221,7 @@ int main(int argc, char *argv[])
             auto scale = 1.5;
             for (auto &item : node->items)
             {
-                auto item_pos = item->pos * scale - cv::Point2d(-1000, -1000);
+                auto item_pos = item->pos() * scale - cv::Point2d(-1000, -1000);
                 cv::circle(map, item_pos, 10, cv::Scalar(0, 0, 255), 4);
             }
             auto node_rect = cv::Rect2d(node->rect.tl() * scale - cv::Point2d(-1000, -1000), cv::Size2d(node->rect.width * scale, node->rect.height * scale));
@@ -129,6 +229,7 @@ int main(int argc, char *argv[])
         }
     }
     {
+        track_timer timer("find max_rect");
         auto result = tree.find_childs(max_rect);
         auto map = quadTree.view();
         for (auto &node : result)
@@ -136,25 +237,15 @@ int main(int argc, char *argv[])
             auto scale = 1.5;
             for (auto &item : node->items)
             {
-                auto item_pos = item->pos * scale - origin;
+                auto item_pos = item->pos() * scale - origin;
                 cv::circle(map, item_pos, 10, cv::Scalar(0, 0, 255), 4);
             }
             auto node_rect = cv::Rect2d(node->rect.tl() * scale - origin, cv::Size2d(node->rect.width * scale, node->rect.height * scale));
             cv::rectangle(map, node_rect, cv::Scalar(0, 255, 0), 1);
         }
     }
-    {
-        auto map = quadTree.view();
-        // surf key
-        cv::Ptr<cv::xfeatures2d::SURF> surf = cv::xfeatures2d::SURF::create(400);
-        std::vector<cv::KeyPoint> keypoints;
-        cv::Mat descriptors;
-        surf->detectAndCompute(map, cv::Mat(), keypoints, descriptors);
-        // fs write
-        cv::FileStorage fs("surf.xml", cv::FileStorage::WRITE);
-        fs << "keypoints" << keypoints;
-        fs << "descriptors" << descriptors;
-        fs.release();
-    }
+
+    // gen_surf(quadTree);
+
     return 0;
 }
