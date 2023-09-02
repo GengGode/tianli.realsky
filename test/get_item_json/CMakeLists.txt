@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.15)
 project(get_item_json)
 
 add_executable(get_item_json main.cpp)
@@ -17,3 +16,10 @@ FetchContent_MakeAvailable(spdlog)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
 # spdlog
 target_link_libraries(${PROJECT_NAME} PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
+
+# copy sricpt *.exe to bin
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/sricpt/bzip2.exe
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
