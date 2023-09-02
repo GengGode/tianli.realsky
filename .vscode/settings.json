@@ -97,7 +97,8 @@
         "string_view": "cpp",
         "*.ixx": "cpp",
         "filesystem": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "memory_resource": "cpp"
     },
     "editor.formatOnSave": true,
     "dotnet.defaultSolution": "disable"

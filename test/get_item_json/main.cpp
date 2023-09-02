@@ -74,7 +74,7 @@ std::vector<std::string> get_md5_list(std::string access_token)
 std::optional<std::string> get_bz2_file(std::string access_token, int index)
 {
     auto bz2_file_res = cpr::Get(
-        cpr::Url{fmt::format(url + "api/marker_doc/list_page_bz2/{}", index)},
+        cpr::Url{fmt::format("{}api/marker_doc/list_page_bz2/{}", url, index)},
         cpr::Header{{"Authorization", "Bearer " + access_token}});
 
     if (bz2_file_res.status_code != 200)
