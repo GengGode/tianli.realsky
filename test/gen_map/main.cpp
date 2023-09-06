@@ -86,15 +86,24 @@ std::vector<cv::Point2d> from_json(std::string json_file)
     return points;
 }
 
-std::vector<cv::Point2d> from_json_overlay(std::string json_file)
+struct overlay_info
 {
-    std::vector<cv::Point2d> points;
+    std::string lable;
+    cv::Mat image;
+    cv::Point tl;
+    cv::Point br;
+    cv::Rect rect() { return cv::Rect(tl, image.size()); }
+};
+
+std::vector<overlay_info> from_json_overlay(std::string json_file)
+{
+    std::vector<overlay_info> overlays;
     std::ifstream in(json_file);
     std::string str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     auto json_res = json::parse(str);
     if (json_res.has_value() == false)
     {
-        return points;
+        return overlays;
     }
     auto json = json_res.value();
     auto type = json.type();
@@ -104,16 +113,11 @@ std::vector<cv::Point2d> from_json_overlay(std::string json_file)
         auto map_object = value.as_object();
         if (map_object.find("overlay").has_value() == false)
             continue;
-        auto overlays = map_object["overlayConfig"]["overlays"].as_array();
-        for (auto &overlay : overlays)
+        for (auto &overlay : map_object["overlayConfig"]["overlays"].as_array())
         {
-            auto overlays_lable = overlay["label"].as_string();
-            auto overlays_children = overlay["children"].as_array();
-            for (auto &child : overlays_children)
+            for (auto &child : overlay["children"].as_array())
             {
-                auto child_label = child["label"].as_string();
-                auto chunks = child["chunks"].as_array();
-                for (auto &chunk : chunks)
+                for (auto &chunk : child["chunks"].as_array())
                 {
                     auto value = chunk["value"].as_string();
                     auto bounds = chunk["bounds"].as_array();
@@ -121,16 +125,72 @@ std::vector<cv::Point2d> from_json_overlay(std::string json_file)
                     auto y1 = bounds[0][1].as_double();
                     auto x2 = bounds[1][0].as_double();
                     auto y2 = bounds[1][1].as_double();
-
-                    std::cout << value << " - " << x1 << ", " << y1 << ", " << x2 << ", " << y2 << std::endl;
+                    overlays.push_back({value + ".png", cv::Mat(), cv::Point(x1, y1), cv::Point(x2, y2)});
                 }
             }
-
-            std::cout << map_name << " - " << overlays_lable << std::endl;
         }
     }
+    for (auto &overlay : overlays)
+    {
+        // std::cout << overlay.lable << std::endl;
+        if (std::filesystem::exists(std::filesystem::path("./overlay") / overlay.lable))
+        {
+            overlay.image = cv::imread((std::filesystem::path("./overlay") / overlay.lable).string(), -1);
+        }
+        else
+        {
+            std::cout << overlay.lable << "not exists" << std::endl;
+        }
+    }
+    return overlays;
+}
 
-    return points;
+void rgba_to_rgb(cv::Mat &image)
+{
+    if (image.channels() == 4)
+    {
+        // cvtColor 会直接丢弃 alpha 通道，所以需要手动混合
+        std::vector<cv::Mat> channels;
+        cv::split(image, channels);
+        cv::Mat alpha = channels[3];
+        channels[0] = channels[0].mul(alpha) / 255;
+        channels[1] = channels[1].mul(alpha) / 255;
+        channels[2] = channels[2].mul(alpha) / 255;
+        channels.pop_back();
+        cv::merge(channels, image);
+    }
+}
+
+void rbg_add_rgba(cv::Mat &image, cv::Mat &overlay)
+{
+    if (image.size() != overlay.size())
+        return;
+    if (overlay.channels() == 4)
+    {
+        // 根据 overlay alpha 通道混合
+        std::vector<cv::Mat> image_channels;
+        std::vector<cv::Mat> overlay_channels;
+        cv::split(image, image_channels);
+        cv::split(overlay, overlay_channels);
+        cv::Mat alpha = overlay_channels[3];
+        image_channels[0] = image_channels[0].mul(255 - alpha) / 255 + overlay_channels[0].mul(alpha) / 255;
+        image_channels[1] = image_channels[1].mul(255 - alpha) / 255 + overlay_channels[1].mul(alpha) / 255;
+        image_channels[2] = image_channels[2].mul(255 - alpha) / 255 + overlay_channels[2].mul(alpha) / 255;
+        cv::merge(image_channels, image);
+    }
+}
+
+void tranf_overlays(std::vector<overlay_info> &overlays)
+{
+    const double image_scale = 2;
+    const double map_scale = 1.5;
+    for (auto &overlay : overlays)
+    {
+        // rgba_to_rgb(overlay.image);
+        cv::resize(overlay.image, overlay.image, cv::Size(), image_scale, image_scale);
+        overlay.tl *= map_scale;
+        overlay.br *= map_scale;
+    }
 }
 cv::Rect2d get_max_rect(BlockMapResource &quadTree)
 {
@@ -219,12 +279,18 @@ void test_tree_find(ItemSetTree &tree, cv::Mat &descriptors)
     std::cout << "find avg time : " << time << std::endl;
 }
 
+#include "OverlaySort.h"
+
 #include <opencv2/core/utils/logger.hpp>
 int main(int argc, char *argv[])
 {
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
 
-    from_json_overlay("./overlay/web-map.json");
+    auto overlays = from_json_overlay("./overlay/web-map.json");
+    tranf_overlays(overlays);
+
+    test();
+
     /*
         {
             // fs read
@@ -268,6 +334,15 @@ int main(int argc, char *argv[])
     cv::resize(m, m, cv::Size(), 2, 2);
 
     auto map_a = quadTree.view();
+    for (auto &overlay : overlays)
+    {
+        // map_a(quadTree.to_abs(overlay.rect())).copyTo();
+        std::cout << overlay.rect() << quadTree.abs(overlay.rect()) << std::endl;
+        auto map_bound = map_a(quadTree.abs(overlay.rect()));
+        rbg_add_rgba(map_bound, overlay.image);
+        // overlay.image.copyTo(map_a(quadTree.abs(overlay.rect())));
+    }
+    cv::imwrite("map_a.png", map_a);
 
     auto map = quadTree.view(cv::Rect2d(cv::Point(-6465, -6622) * 1.5, m.size()));
 
