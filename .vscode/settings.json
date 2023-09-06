@@ -105,7 +105,13 @@
         "qgraphicsview": "cpp",
         "qvariant": "cpp",
         "qapplication": "cpp",
-        "latch": "cpp"
+        "latch": "cpp",
+        "qwheelevent": "cpp",
+        "qmouseevent": "cpp",
+        "qgraphicsrectitem": "cpp",
+        "qgraphicspixmapitem": "cpp",
+        "qfontdatabase": "cpp",
+        "qtimer": "cpp"
     },
     "editor.formatOnSave": true,
     "dotnet.defaultSolution": "disable"

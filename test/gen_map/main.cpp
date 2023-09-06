@@ -86,6 +86,52 @@ std::vector<cv::Point2d> from_json(std::string json_file)
     return points;
 }
 
+std::vector<cv::Point2d> from_json_overlay(std::string json_file)
+{
+    std::vector<cv::Point2d> points;
+    std::ifstream in(json_file);
+    std::string str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    auto json_res = json::parse(str);
+    if (json_res.has_value() == false)
+    {
+        return points;
+    }
+    auto json = json_res.value();
+    auto type = json.type();
+    auto all_object = json["plugins"].as_object();
+    for (auto &&[map_name, value] : all_object)
+    {
+        auto map_object = value.as_object();
+        if (map_object.find("overlay").has_value() == false)
+            continue;
+        auto overlays = map_object["overlayConfig"]["overlays"].as_array();
+        for (auto &overlay : overlays)
+        {
+            auto overlays_lable = overlay["label"].as_string();
+            auto overlays_children = overlay["children"].as_array();
+            for (auto &child : overlays_children)
+            {
+                auto child_label = child["label"].as_string();
+                auto chunks = child["chunks"].as_array();
+                for (auto &chunk : chunks)
+                {
+                    auto value = chunk["value"].as_string();
+                    auto bounds = chunk["bounds"].as_array();
+                    auto x1 = bounds[0][0].as_double();
+                    auto y1 = bounds[0][1].as_double();
+                    auto x2 = bounds[1][0].as_double();
+                    auto y2 = bounds[1][1].as_double();
+
+                    std::cout << value << " - " << x1 << ", " << y1 << ", " << x2 << ", " << y2 << std::endl;
+                }
+            }
+
+            std::cout << map_name << " - " << overlays_lable << std::endl;
+        }
+    }
+
+    return points;
+}
 cv::Rect2d get_max_rect(BlockMapResource &quadTree)
 {
     auto map_center = quadTree.get_abs_origin();
@@ -178,28 +224,31 @@ int main(int argc, char *argv[])
 {
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
 
-    {
-        // fs read
-        std::vector<cv::KeyPoint> keypoints;
-        cv::Mat descriptors;
+    from_json_overlay("./overlay/web-map.json");
+    /*
         {
-            track_timer timer("read surf.xml");
-            cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
-            fs2["keypoints"] >> keypoints;
-            fs2["descriptors"] >> descriptors;
-            fs2.release();
+            // fs read
+            std::vector<cv::KeyPoint> keypoints;
+            cv::Mat descriptors;
+            {
+                track_timer timer("read surf.xml");
+                cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
+                fs2["keypoints"] >> keypoints;
+                fs2["descriptors"] >> descriptors;
+                fs2.release();
+            }
+            std::vector<std::shared_ptr<ItemInface>> items;
+            for (int i = 0; i < keypoints.size(); i++)
+                items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
+            ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
+
+            auto res = tree.find(tree.root->rect);
+
+            test_tree_find(tree, descriptors);
+            test_surf_gen();
+            tree.print();
         }
-        std::vector<std::shared_ptr<ItemInface>> items;
-        for (int i = 0; i < keypoints.size(); i++)
-            items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
-        ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
-
-        auto res = tree.find(tree.root->rect);
-
-        test_tree_find(tree, descriptors);
-        test_surf_gen();
-        // tree.print();
-    }
+        */
 
     auto points = from_txt();
     std::vector<std::shared_ptr<ItemInface>> items;
@@ -208,6 +257,23 @@ int main(int argc, char *argv[])
 
     BlockMapResource quadTree("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
     auto map_center = quadTree.get_abs_origin();
+    auto r2 = map_center - quadTree.get_min_rect().tl();
+    auto r = r2 + cv::Point(-6465, -6622);
+    auto r3 = r2 + cv::Point(-6465, -6622) * 1.5;
+    std::cout << r2.x << ", " << r2.y << std::endl;
+    std::cout << r.x << ", " << r.y << std::endl;
+    std::cout << r3.x << ", " << r3.y << std::endl;
+
+    auto m = cv::imread("C:/Users/XiZhu/source/repos/tianli.RealSky/test/gen_map/overlay/Tex_0232_0~6.png", -1);
+    cv::resize(m, m, cv::Size(), 2, 2);
+
+    auto map_a = quadTree.view();
+
+    auto map = quadTree.view(cv::Rect2d(cv::Point(-6465, -6622) * 1.5, m.size()));
+
+    cv::cvtColor(m, m, cv::COLOR_BGRA2BGR);
+    cv::addWeighted(map, 0.5, m, 0.5, 0, map);
+
     auto max_rect = get_max_rect(quadTree); // cv::Rect2d(quadTree.get_min_rect());
     auto origin = cv::Rect2d(quadTree.get_min_rect()).tl() - cv::Point2d(map_center);
 
@@ -231,7 +297,6 @@ int main(int argc, char *argv[])
     {
         track_timer timer("find max_rect");
         auto result = tree.find_childs(max_rect);
-        auto map = quadTree.view();
         for (auto &node : result)
         {
             auto scale = 1.5;
@@ -243,6 +308,11 @@ int main(int argc, char *argv[])
             auto node_rect = cv::Rect2d(node->rect.tl() * scale - origin, cv::Size2d(node->rect.width * scale, node->rect.height * scale));
             cv::rectangle(map, node_rect, cv::Scalar(0, 255, 0), 1);
         }
+    }
+    {
+
+        track_timer timer("asd");
+        auto map = quadTree.view(cv::Rect2d(-1000, -1000, 2000, 2000));
     }
 
     // gen_surf(quadTree);
