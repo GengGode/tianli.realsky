@@ -98,7 +98,14 @@
         "*.ixx": "cpp",
         "filesystem": "cpp",
         "variant": "cpp",
-        "memory_resource": "cpp"
+        "memory_resource": "cpp",
+        "qdiriterator": "cpp",
+        "qdebug": "cpp",
+        "qwidget": "cpp",
+        "qgraphicsview": "cpp",
+        "qvariant": "cpp",
+        "qapplication": "cpp",
+        "latch": "cpp"
     },
     "editor.formatOnSave": true,
     "dotnet.defaultSolution": "disable"

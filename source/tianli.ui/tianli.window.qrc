@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="font">
+    <file>resource/font/UIDFont.ttf</file>
+  </qresource>
+  <qresource prefix="icon">
+    <file>resource/icon/tianli.ico</file>
+    <file>resource/icon/tianli.png</file>
+  </qresource>
+</RCC>
