@@ -1,2 +1,3 @@
+add_subdirectory(gen_combiner)
 add_subdirectory(gen_map)
 add_subdirectory(get_item_json)
