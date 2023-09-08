@@ -61,7 +61,6 @@ public:
 private:
     static int judge_one(int btm, int low, int high, int limit, int obj_width, int obj_height)
     {
-
         if (obj_height <= limit)
         {
             if (btm == obj_width)
@@ -207,18 +206,23 @@ public:
     {
         std::list<skyline> steps;
         std::list<placement> places;
-        auto head = pack(limit_size.width, limit_size.height, steps, places);
+        size_t area = limit_size.width * limit_size.height;
+        auto res = pack(limit_size.width, limit_size.height, steps, places);
+
         std::map<int, cv::Rect> result;
         int index = 0;
+        size_t sum = 0;
         for (auto &place : places)
         {
             result[index++] = place.rect;
+            sum += place.rect.area();
         }
+        std::cout << "rate: " << (double)sum / area << std::endl;
         return result;
     }
 
 private:
-    obj *pack(int width, int height, std::list<skyline> &steps, std::list<placement> &places)
+    bool pack(int width, int height, std::list<skyline> &steps, std::list<placement> &places)
     {
         auto head = objs.begin();
         skyline::insert_to(steps, new skyline(0, width, 0));
@@ -312,13 +316,51 @@ private:
             }
         }
         if (head != objs.end())
-            return &*head;
-        return nullptr;
+            return false;
+        return true;
     }
 
 private:
     std::list<obj> objs;
 };
+
+void show(std::map<cv::Size, cv::Rect> result, cv::Size limit_size)
+{
+    std::vector<cv::Rect> rects;
+    cv::Rect max_rect;
+    for (auto &r : result)
+    {
+        rects.push_back(r.second);
+        max_rect = max_rect | r.second;
+        std::cout << r.first << ": " << r.second << std::endl;
+    }
+    cv::Mat img = cv::Mat::zeros(limit_size, CV_8UC3);
+    int index = 0;
+    for (auto &r : rects)
+    {
+        cv::rectangle(img, r, cv::Scalar(0, 0, 255), 10);
+        auto center = r.tl() + cv::Point(r.width / 2, r.height / 2);
+        cv::putText(img, std::to_string(index++), center, cv::FONT_HERSHEY_SIMPLEX, 5, cv::Scalar(0, 0, 255), 10);
+        std::cout << r << std::endl;
+    }
+    cv::rectangle(img, max_rect, cv::Scalar(0, 0, 255), 10);
+    cv::resize(img, img, cv::Size(), 0.1, 0.1);
+    cv::imshow("img", img);
+    cv::waitKey(000);
+}
+
+std::map<cv::Size, cv::Rect> pack(std::vector<cv::Size> &objs, cv::Size limit_size)
+{
+    combiner_inface *combiner = new combine();
+    combiner->init(objs);
+    auto pre = combiner->pre_combinered(limit_size);
+    std::map<cv::Size, cv::Rect> result;
+    for (auto &p : pre)
+    {
+        result[p.second.size()] = p.second;
+    }
+    return result;
+}
 
 void test()
 {
@@ -429,7 +471,7 @@ void test()
     std::sort(objs.begin(), objs.end(), [](const cv::Size &a, const cv::Size &b)
               { return a.width * a.height > b.width * b.height; });
 
-    cv::Size limit = {2048 * 6, 2048 * 4};
+    cv::Size limit = {2048 * 7, 2048 * 3};
 
     combiner_inface *combiner = new combine();
     combiner->init(objs);
@@ -443,9 +485,13 @@ void test()
         std::cout << r.first << ": " << r.second << std::endl;
     }
     cv::Mat img = cv::Mat::zeros(max_rect.size(), CV_8UC3);
+    int index = 0;
     for (auto &r : rects)
     {
         cv::rectangle(img, r, cv::Scalar(0, 0, 255), 10);
+        auto center = r.tl() + cv::Point(r.width / 2, r.height / 2);
+        cv::putText(img, std::to_string(index++), center, cv::FONT_HERSHEY_SIMPLEX, 5, cv::Scalar(0, 0, 255), 10);
+        std::cout << r << std::endl;
     }
     cv::resize(img, img, cv::Size(), 0.1, 0.1);
     cv::imshow("img", img);
