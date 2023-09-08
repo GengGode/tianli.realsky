@@ -31,6 +31,22 @@ namespace std
             return a.x < b.x || (a.x == b.x && a.y < b.y);
         }
     };
+    template <>
+    struct less<cv::Size>
+    {
+        bool operator()(const cv::Size &a, const cv::Size &b) const
+        {
+            return a.width < b.width || (a.width == b.width && a.height < b.height);
+        }
+    };
+    template <>
+    struct less<cv::Rect>
+    {
+        bool operator()(const cv::Rect &a, const cv::Rect &b) const
+        {
+            return a.x < b.x || (a.x == b.x && a.y < b.y) || (a.x == b.x && a.y == b.y && a.width < b.width) || (a.x == b.x && a.y == b.y && a.width == b.width && a.height < b.height);
+        }
+    };
 } // namespace std
 
 class BlockMapResource
