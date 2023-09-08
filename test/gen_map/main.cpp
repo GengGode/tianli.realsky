@@ -192,6 +192,26 @@ void tranf_overlays(std::vector<overlay_info> &overlays)
         overlay.br *= map_scale;
     }
 }
+
+std::map<cv::Size, std::vector<overlay_info>::iterator> size_map(std::vector<overlay_info> &overlays)
+{
+    std::map<cv::Size, std::vector<overlay_info>::iterator> size_map;
+    for (auto it = overlays.begin(); it != overlays.end(); it++)
+    {
+        size_map[it->image.size()] = it;
+    }
+    return size_map;
+}
+
+std::vector<cv::Size> size_overlays(std::vector<overlay_info> &overlays)
+{
+    std::vector<cv::Size> sizes;
+    for (auto &overlay : overlays)
+    {
+        sizes.push_back(overlay.image.size());
+    }
+    return sizes;
+}
 cv::Rect2d get_max_rect(BlockMapResource &quadTree)
 {
     auto map_center = quadTree.get_abs_origin();
@@ -288,8 +308,14 @@ int main(int argc, char *argv[])
 
     auto overlays = from_json_overlay("./overlay/web-map.json");
     tranf_overlays(overlays);
-
-    test();
+    auto sizes = size_map(overlays);
+    std::vector<cv::Size> size_list;
+    for (auto &size : sizes)
+    {
+        size_list.push_back(size.first);
+    }
+    auto res = pack(size_list, cv::Size(2048 * 6, 2048 * 3));
+    // test();
 
     /*
         {
@@ -334,6 +360,7 @@ int main(int argc, char *argv[])
     cv::resize(m, m, cv::Size(), 2, 2);
 
     auto map_a = quadTree.view();
+    auto map_black = map_a(cv::Rect(0, map_a.rows - 2048 * 3, 2048 * 6, 2048 * 3));
     for (auto &overlay : overlays)
     {
         // map_a(quadTree.to_abs(overlay.rect())).copyTo();
@@ -341,7 +368,19 @@ int main(int argc, char *argv[])
         auto map_bound = map_a(quadTree.abs(overlay.rect()));
         rbg_add_rgba(map_bound, overlay.image);
         // overlay.image.copyTo(map_a(quadTree.abs(overlay.rect())));
+        if (res.find(overlay.image.size()) != res.end())
+        {
+            auto rect = res[overlay.image.size()];
+            auto map_bound = map_black(rect);
+            // overlay.image.copyTo(map_a(rect));
+            rbg_add_rgba(map_bound, overlay.image);
+        }
+        else
+        {
+            std::cout << "not found" << std::endl;
+        }
     }
+
     cv::imwrite("map_a.png", map_a);
 
     auto map = quadTree.view(cv::Rect2d(cv::Point(-6465, -6622) * 1.5, m.size()));
