@@ -2,8 +2,14 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 
+set(src_utils 
+tianli.utils/utils.image.h
+tianli.utils/utils.string.h
+)
+
 add_executable(${PROJECT_NAME} 
 main.cpp 
+${src_utils}
 tianli.init.h
 tianli.core/tianli.map.h
 tianli.ui/tianli.window.h 
