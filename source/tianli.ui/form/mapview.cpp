@@ -5,13 +5,24 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QTimer>
+#include <QDebug>
+#include "../../tianli.utils/utils.image.h"
+#include "../../tianli.utils/utils.string.h"
+
 MapView::MapView(QWidget *parent) : QWidget(parent)
 {
     ui.setupUi(this);
-    this->timer = new QTimer(this);
-    connect(this->timer, &QTimer::timeout, this, [=]
-            { this->update(); });
-    this->timer->start(1000 / 60);
+    // this->timer = new QTimer(this);
+    //  connect(this->timer, &QTimer::timeout, this, [=]
+    //          {
+    //              static MapSprite old = this->view_sprite();
+    //              if (old.pos != this->view_sprite().pos || old.scale != this->view_sprite().scale)
+    //                  this->update();
+    //              old = this->view_sprite(); });
+    //  this->timer->start(1000 / 60);
+    QImage mask(":/form/resource/form/mapview/rect_mask.png");
+
+    map.set_mask(utils::qimage_to_mat(mask));
 }
 
 MapView::~MapView()
@@ -56,6 +67,7 @@ void MapView::wheelEvent(QWheelEvent *event)
 {
     auto pos = event->pos();
     auto delta = event->delta();
+    auto old_scale = this->map_scale;
     if (delta > 0)
     {
         this->map_scale *= 1.1;
@@ -64,31 +76,21 @@ void MapView::wheelEvent(QWheelEvent *event)
     {
         this->map_scale /= 1.1;
     }
-    this->map_pos += (pos - this->rect().center()) / this->map_scale;
+    qDebug() << (pos - this->rect().center());
+    this->map_pos += (pos - this->rect().center()) * (old_scale - this->map_scale);
 }
 
 void MapView::paintEvent(QPaintEvent *event)
 {
-    // draw background
+    static bool is_paint = false;
+    if (is_paint)
+        return;
+    is_paint = true;
     QPainter painter(this);
-    painter.setBrush(QBrush(QColor(0, 0, 0, 128)));
-    painter.drawRect(this->rect());
-    painter.setBrush(QBrush(QColor(255, 255, 255, 255)));
-    painter.drawArc(this->rect(), 0, 360 * 16);
-    painter.setBrush(QBrush(QColor(0, 255, 0, 255)));
-    painter.drawText(this->rect(), Qt::AlignCenter, QString::number(this->map_pos.x()) + ", " + QString::number(this->map_pos.y()) + ", " + QString::number(this->map_scale));
-    painter.setBrush(QBrush(QColor(255, 255, 255, 255)));
 
     auto sprite = this->view_sprite();
-    auto rect = cv::Rect2d(sprite.pos.x, sprite.pos.y, sprite.size.width * sprite.scale, sprite.size.height * sprite.scale);
-    auto rs = map.set->find(rect);
-    for (auto &r : rs)
-    {
-        auto pos = r->pos();
-        auto p = QPointF((pos.x - this->map_pos.x()) * this->map_scale, (pos.y - this->map_pos.y()) * this->map_scale);
-        // p -= this->rect().center();
-        painter.drawEllipse(p, 5, 5);
-    }
-
+    cv::Mat mat = map.view(sprite);
+    painter.drawImage(this->rect(), utils::mat_to_qimage(mat));
     painter.end();
+    is_paint = false;
 }
