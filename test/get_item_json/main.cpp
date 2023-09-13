@@ -10,8 +10,8 @@
 std::string url = "https://cloud.yuanshen.site/";
 
 static auto cache_dir = std::filesystem::path{"./cache/"};
-static auto save_dir = std::filesystem::path{"./save/"};
-cpr::Proxies proxies{{"http", "http://127.0.0.1:1080"}, {"https", "https://127.0.0.1:1080"}};
+static auto save_dir = std::filesystem::path{"./item/"};
+cpr::Proxies proxies{{"http", "http://127.0.0.1:1080"}, {"https", "http://127.0.0.1:1080"}};
 void init()
 {
     if (!std::filesystem::exists(cache_dir))
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     spdlog::info("access_token: success");
     auto bz2_md5_list = get_md5_list(access_token);
     spdlog::info("bz2_md5_list.size(): {}", bz2_md5_list.size());
-
+    json::array json_all;
     for (int i = 0; i < bz2_md5_list.size(); i++)
     {
         auto bz2_file_content_opt = get_bz2_file(access_token, i);
@@ -147,7 +147,14 @@ int main(int argc, char **argv)
             return -1;
         }
         auto json = json_opt.value();
+        for (auto &item : json.as_array())
+        {
+            json_all.push_back(item);
+        }
     }
+    auto json_file = save_dir / "item_all.json";
+    std::ofstream ofs(json_file);
+    ofs << json_all.format();
 
     return 0;
 }
