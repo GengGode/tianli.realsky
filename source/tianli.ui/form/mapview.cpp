@@ -78,6 +78,7 @@ void MapView::wheelEvent(QWheelEvent *event)
     }
     qDebug() << (pos - this->rect().center());
     this->map_pos += (pos - this->rect().center()) * (old_scale - this->map_scale);
+    update();
 }
 
 void MapView::paintEvent(QPaintEvent *event)
