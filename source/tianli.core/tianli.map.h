@@ -36,23 +36,9 @@ public:
     }
     void set_mask(cv::Mat mask)
     {
-        switch (mask.channels())
-        {
-        case 1:break;
-        case 4:
-        {
-            std::vector<cv::Mat> mask_layers;
-            cv::split(mask, mask_layers);
-            mask = mask_layers.back();
-        }
-        default:
-        {
-            std::vector<cv::Mat> mask_layers;
-            cv::split(mask, mask_layers);
-            mask = mask_layers[0];
-        }
-        }
-        this->mask = mask;
+         std::vector<cv::Mat> mask_layers;
+         cv::split(mask, mask_layers);
+         this->mask = mask_layers.back();
     }
 
     cv::Mat merge_tranform(cv::Mat src, cv::Mat mask)
