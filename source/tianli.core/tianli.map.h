@@ -20,14 +20,16 @@ public:
 public:
     cv::Mat view(const MapSprite &sprite)
     {
-        // cv::Mat viewer;
-        //  auto width = sprite.size.width / sprite.scale;
-        //  auto height = sprite.size.height / sprite.scale;
-        //  auto rect = cv::Rect2d(sprite.pos.x - width * 0.5, sprite.pos.y - height * 0.5, width, height);
+        auto width = sprite.size.width / sprite.scale;
+        auto height = sprite.size.height / sprite.scale;
+
+        auto rect = cv::Rect2d(sprite.pos.x - width * 0.5, sprite.pos.y - height * 0.5, width, height);
         //  auto rs = set->find(rect);
-        //  auto mat = resource->view(rect).clone();
-        auto viewer = border_mask(sprite.size);
-        // cv::resize(mat, viewer, sprite.size);
+        auto viewer = resource->view(rect).clone();
+        cv::resize(viewer, viewer, sprite.size);
+        auto mask = border_mask(sprite.size);
+        viewer = merge_tranform(viewer, mask);
+
         // cv::imshow("viewer", viewer);
         // cv::waitKey(1);
         return viewer;
@@ -37,9 +39,42 @@ public:
         this->mask = mask;
     }
 
+    cv::Mat merge_tranform(cv::Mat src, cv::Mat mask)
+    {
+        /* mask as alpha */
+        // std::vector<cv::Mat> channels;
+        // cv::split(src, channels);
+        // channels.push_back(mask);
+        // cv::Mat dst;
+        // cv::merge(channels, dst);
+        // return dst;
+        /* mask as rgba */
+        assert(src.channels() == 3);
+        assert(mask.channels() == 4);
+        std::vector<cv::Mat> src_layers;
+        cv::split(src, src_layers);
+        std::vector<cv::Mat> mask_layers;
+        cv::split(mask, mask_layers);
+        std::vector<cv::Mat> dst_layers;
+        dst_layers.push_back(src_layers[0]);
+        dst_layers.push_back(src_layers[1]);
+        dst_layers.push_back(src_layers[2]);
+        dst_layers.push_back(mask_layers[3]);
+        cv::Mat dst;
+        cv::merge(dst_layers, dst);
+        return dst;
+    }
+
     cv::Mat border_mask(cv::Size size)
     {
-        return border_mask(this->mask, size.width, size.height, 30, 30, 30, 30);
+        static cv::Size buff_size;
+        static cv::Mat buff_mask;
+        if (buff_size != size)
+        {
+            buff_size = size;
+            buff_mask = border_mask(this->mask, size.width, size.height, 30, 30, 30, 30);
+        }
+        return buff_mask;
     }
 
     cv::Mat border_mask(cv::Mat src, int w, int h, int clip_top, int clip_right, int clip_bottom, int clip_left)
