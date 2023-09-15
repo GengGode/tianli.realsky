@@ -46,35 +46,47 @@ public:
     {
         assert(src.channels() == 4);
         cv::Mat mask = cv::Mat::zeros(h, w, CV_8UC4);
-        //  target, source
-        std::vector<std::pair<cv::Rect, cv::Rect>> rects = {
-            // left_top
-            {cv::Rect(0, 0, clip_left, clip_top), cv::Rect(0, 0, clip_left, clip_top)},
-            // left_bottom
-            {cv::Rect(0, h - clip_bottom, clip_left, clip_bottom), cv::Rect(0, src.rows - clip_bottom, clip_left, clip_bottom)},
-            // right_top
-            {cv::Rect(w - clip_right, 0, clip_right, clip_top), cv::Rect(src.cols - clip_right, 0, clip_right, clip_top)},
-            // right_bottom
-            {cv::Rect(w - clip_right, h - clip_bottom, clip_right, clip_bottom), cv::Rect(src.cols - clip_right, src.rows - clip_bottom, clip_right, clip_bottom)},
-            // top
-            {cv::Rect(clip_left, 0, w - clip_left - clip_right, clip_top), cv::Rect(clip_left, 0, src.cols - clip_left - clip_right, clip_top)},
-            // bottom
-            {cv::Rect(clip_left, h - clip_bottom, w - clip_left - clip_right, clip_bottom), cv::Rect(clip_left, src.rows - clip_bottom, src.cols - clip_left - clip_right, clip_bottom)},
-            // left
-            {cv::Rect(0, clip_top, clip_left, h - clip_top - clip_bottom), cv::Rect(0, clip_top, clip_left, src.rows - clip_top - clip_bottom)},
-            // right
-            {cv::Rect(w - clip_right, clip_top, clip_right, h - clip_top - clip_bottom), cv::Rect(src.cols - clip_right, clip_top, clip_right, src.rows - clip_top - clip_bottom)},
-            // center
-            {cv::Rect(clip_left, clip_top, w - clip_left - clip_right, h - clip_top - clip_bottom), cv::Rect(clip_left, clip_top, src.cols - clip_left - clip_right, src.rows - clip_top - clip_bottom)},
-        };
-        for (auto &[target, source] : rects)
+        enum border_type
         {
-            if (target.width <= 0 || target.height <= 0)
-                continue;
+            center,
+            border,
+            border_center,
+        };
+        struct copy_info
+        {
+            border_type type;
+            cv::Rect target;
+            cv::Rect source;
+        };
+        std::vector<copy_info> infos = {
+            // left_top
+            {border_type::border, cv::Rect(0, 0, clip_left, clip_top), cv::Rect(0, 0, clip_left, clip_top)},
+            // left_bottom
+            {border_type::border, cv::Rect(0, h - clip_bottom, clip_left, clip_bottom), cv::Rect(0, src.rows - clip_bottom, clip_left, clip_bottom)},
+            // right_top
+            {border_type::border, cv::Rect(w - clip_right, 0, clip_right, clip_top), cv::Rect(src.cols - clip_right, 0, clip_right, clip_top)},
+            // right_bottom
+            {border_type::border, cv::Rect(w - clip_right, h - clip_bottom, clip_right, clip_bottom), cv::Rect(src.cols - clip_right, src.rows - clip_bottom, clip_right, clip_bottom)},
+            // top
+            {border_type::border_center, cv::Rect(clip_left, 0, w - clip_left - clip_right, clip_top), cv::Rect(clip_left, 0, src.cols - clip_left - clip_right, clip_top)},
+            // bottom
+            {border_type::border_center, cv::Rect(clip_left, h - clip_bottom, w - clip_left - clip_right, clip_bottom), cv::Rect(clip_left, src.rows - clip_bottom, src.cols - clip_left - clip_right, clip_bottom)},
+            // left
+            {border_type::border_center, cv::Rect(0, clip_top, clip_left, h - clip_top - clip_bottom), cv::Rect(0, clip_top, clip_left, src.rows - clip_top - clip_bottom)},
+            // right
+            {border_type::border_center, cv::Rect(w - clip_right, clip_top, clip_right, h - clip_top - clip_bottom), cv::Rect(src.cols - clip_right, clip_top, clip_right, src.rows - clip_top - clip_bottom)},
+            // center
+            {border_type::center, cv::Rect(clip_left, clip_top, w - clip_left - clip_right, h - clip_top - clip_bottom), cv::Rect(clip_left, clip_top, src.cols - clip_left - clip_right, src.rows - clip_top - clip_bottom)},
+        };
+
+        for (auto &[type, target, source] : infos)
+        {
             auto target_mat = mask(target);
             auto source_mat = src(source);
             if (source_mat.size() != target_mat.size())
             {
+                if (target.width <= 0 || target.height <= 0)
+                    continue;
                 cv::resize(source_mat, source_mat, target_mat.size());
             }
             source_mat.copyTo(target_mat);
