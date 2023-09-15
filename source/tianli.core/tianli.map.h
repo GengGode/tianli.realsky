@@ -18,7 +18,7 @@ public:
     ~Map() = default;
 
 public:
-    cv::Mat view(const MapSprite &sprite)
+    cv::Mat view(const MapSprite& sprite)
     {
         auto width = sprite.size.width / sprite.scale;
         auto height = sprite.size.height / sprite.scale;
@@ -36,32 +36,33 @@ public:
     }
     void set_mask(cv::Mat mask)
     {
+        switch (mask.channels())
+        {
+        case 1:break;
+        case 4:
+        {
+            std::vector<cv::Mat> mask_layers;
+            cv::split(mask, mask_layers);
+            mask = mask_layers.back();
+        }
+        default:
+        {
+            std::vector<cv::Mat> mask_layers;
+            cv::split(mask, mask_layers);
+            mask = mask_layers[0];
+        }
+        }
         this->mask = mask;
     }
 
     cv::Mat merge_tranform(cv::Mat src, cv::Mat mask)
     {
         /* mask as alpha */
-        // std::vector<cv::Mat> channels;
-        // cv::split(src, channels);
-        // channels.push_back(mask);
-        // cv::Mat dst;
-        // cv::merge(channels, dst);
-        // return dst;
-        /* mask as rgba */
-        assert(src.channels() == 3);
-        assert(mask.channels() == 4);
-        std::vector<cv::Mat> src_layers;
-        cv::split(src, src_layers);
-        std::vector<cv::Mat> mask_layers;
-        cv::split(mask, mask_layers);
-        std::vector<cv::Mat> dst_layers;
-        dst_layers.push_back(src_layers[0]);
-        dst_layers.push_back(src_layers[1]);
-        dst_layers.push_back(src_layers[2]);
-        dst_layers.push_back(mask_layers[3]);
+        std::vector<cv::Mat> channels;
+        cv::split(src, channels);
+        channels.push_back(mask);
         cv::Mat dst;
-        cv::merge(dst_layers, dst);
+        cv::merge(channels, dst);
         return dst;
     }
 
@@ -79,8 +80,8 @@ public:
 
     cv::Mat border_mask(cv::Mat src, int w, int h, int clip_top, int clip_right, int clip_bottom, int clip_left)
     {
-        assert(src.channels() == 4);
-        cv::Mat mask = cv::Mat::zeros(h, w, CV_8UC4);
+        assert(src.channels() == 1);
+        cv::Mat mask = cv::Mat::zeros(h, w, CV_8UC1);
         if (src.cols > w || src.rows > h)
         {
             cv::resize(src, mask, cv::Size(w, h));
