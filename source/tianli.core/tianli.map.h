@@ -46,7 +46,7 @@ public:
     {
         assert(src.channels() == 4);
         cv::Mat mask = cv::Mat::zeros(h, w, CV_8UC4);
-        if (src.cols < w || src.rows < h)
+        if (src.cols > w || src.rows > h)
         {
             cv::resize(src, mask, cv::Size(w, h));
             return mask;
