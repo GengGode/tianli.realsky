@@ -1,6 +1,8 @@
 #include <iostream>
 #include "BlockMapResource.h"
 #include "MapItemSet.h"
+#include "MapOverlay.h"
+#include "MapCity.h"
 #include <direct.h> // add this header file
 
 #include <opencv2/xfeatures2d.hpp>
@@ -86,132 +88,6 @@ std::vector<cv::Point2d> from_json(std::string json_file)
     return points;
 }
 
-struct overlay_info
-{
-    std::string lable;
-    cv::Mat image;
-    cv::Point tl;
-    cv::Point br;
-    cv::Rect rect() { return cv::Rect(tl, image.size()); }
-};
-
-std::vector<overlay_info> from_json_overlay(std::string json_file)
-{
-    std::vector<overlay_info> overlays;
-    std::ifstream in(json_file);
-    std::string str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    auto json_res = json::parse(str);
-    if (json_res.has_value() == false)
-    {
-        return overlays;
-    }
-    auto json = json_res.value();
-    auto type = json.type();
-    auto all_object = json["plugins"].as_object();
-    for (auto &&[map_name, value] : all_object)
-    {
-        auto map_object = value.as_object();
-        if (map_object.find("overlay").has_value() == false)
-            continue;
-        for (auto &overlay : map_object["overlayConfig"]["overlays"].as_array())
-        {
-            for (auto &child : overlay["children"].as_array())
-            {
-                for (auto &chunk : child["chunks"].as_array())
-                {
-                    auto value = chunk["value"].as_string();
-                    auto bounds = chunk["bounds"].as_array();
-                    auto x1 = bounds[0][0].as_double();
-                    auto y1 = bounds[0][1].as_double();
-                    auto x2 = bounds[1][0].as_double();
-                    auto y2 = bounds[1][1].as_double();
-                    overlays.push_back({value + ".png", cv::Mat(), cv::Point(x1, y1), cv::Point(x2, y2)});
-                }
-            }
-        }
-    }
-    for (auto &overlay : overlays)
-    {
-        // std::cout << overlay.lable << std::endl;
-        if (std::filesystem::exists(std::filesystem::path("./overlay") / overlay.lable))
-        {
-            overlay.image = cv::imread((std::filesystem::path("./overlay") / overlay.lable).string(), -1);
-        }
-        else
-        {
-            std::cout << overlay.lable << "not exists" << std::endl;
-        }
-    }
-    return overlays;
-}
-
-void rgba_to_rgb(cv::Mat &image)
-{
-    if (image.channels() == 4)
-    {
-        // cvtColor 会直接丢弃 alpha 通道，所以需要手动混合
-        std::vector<cv::Mat> channels;
-        cv::split(image, channels);
-        cv::Mat alpha = channels[3];
-        channels[0] = channels[0].mul(alpha) / 255;
-        channels[1] = channels[1].mul(alpha) / 255;
-        channels[2] = channels[2].mul(alpha) / 255;
-        channels.pop_back();
-        cv::merge(channels, image);
-    }
-}
-
-void rbg_add_rgba(cv::Mat &image, cv::Mat &overlay)
-{
-    if (image.size() != overlay.size())
-        return;
-    if (overlay.channels() == 4)
-    {
-        // 根据 overlay alpha 通道混合
-        std::vector<cv::Mat> image_channels;
-        std::vector<cv::Mat> overlay_channels;
-        cv::split(image, image_channels);
-        cv::split(overlay, overlay_channels);
-        cv::Mat alpha = overlay_channels[3];
-        image_channels[0] = image_channels[0].mul(255 - alpha) / 255 + overlay_channels[0].mul(alpha) / 255;
-        image_channels[1] = image_channels[1].mul(255 - alpha) / 255 + overlay_channels[1].mul(alpha) / 255;
-        image_channels[2] = image_channels[2].mul(255 - alpha) / 255 + overlay_channels[2].mul(alpha) / 255;
-        cv::merge(image_channels, image);
-    }
-}
-
-void tranf_overlays(std::vector<overlay_info> &overlays)
-{
-    const double image_scale = 2;
-    const double map_scale = 1.5;
-    for (auto &overlay : overlays)
-    {
-        // rgba_to_rgb(overlay.image);
-        cv::resize(overlay.image, overlay.image, cv::Size(), image_scale, image_scale);
-        overlay.tl *= map_scale;
-        overlay.br *= map_scale;
-    }
-}
-
-std::map<cv::Size, std::vector<overlay_info>::iterator> size_map(std::vector<overlay_info> &overlays)
-{
-    std::map<cv::Size, std::vector<overlay_info>::iterator> size_map;
-    for (auto it = overlays.begin(); it != overlays.end(); it++)
-    {
-        size_map[it->image.size()] = it;
-    }
-    return size_map;
-}
-
-std::vector<cv::Size> size_overlays(std::vector<overlay_info> &overlays)
-{
-    std::vector<cv::Size> sizes;
-    for (auto &overlay : overlays)
-    {
-        sizes.push_back(overlay.image.size());
-    }
-    return sizes;
-}
 cv::Rect2d get_max_rect(BlockMapResource &quadTree)
 {
     auto map_center = quadTree.get_abs_origin();
@@ -299,80 +175,55 @@ void test_tree_find(ItemSetTree &tree, cv::Mat &descriptors)
     std::cout << "find avg time : " << time << std::endl;
 }
 
-#include "OverlaySort.h"
-
-#include <opencv2/core/utils/logger.hpp>
-int main(int argc, char *argv[])
-{
-    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
-
-    auto overlays = from_json_overlay("./overlay/web-map.json");
-    tranf_overlays(overlays);
-    auto sizes = size_map(overlays);
-    std::vector<cv::Size> size_list;
-    for (auto &size : sizes)
+/*
     {
-        size_list.push_back(size.first);
-    }
-    auto res = pack(size_list, cv::Size(2048 * 6, 2048 * 3));
-    // test();
-
-    /*
+        // fs read
+        std::vector<cv::KeyPoint> keypoints;
+        cv::Mat descriptors;
         {
-            // fs read
-            std::vector<cv::KeyPoint> keypoints;
-            cv::Mat descriptors;
-            {
-                track_timer timer("read surf.xml");
-                cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
-                fs2["keypoints"] >> keypoints;
-                fs2["descriptors"] >> descriptors;
-                fs2.release();
-            }
-            std::vector<std::shared_ptr<ItemInface>> items;
-            for (int i = 0; i < keypoints.size(); i++)
-                items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
-            ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
-
-            auto res = tree.find(tree.root->rect);
-
-            test_tree_find(tree, descriptors);
-            test_surf_gen();
-            tree.print();
+            track_timer timer("read surf.xml");
+            cv::FileStorage fs2("surf.xml", cv::FileStorage::READ);
+            fs2["keypoints"] >> keypoints;
+            fs2["descriptors"] >> descriptors;
+            fs2.release();
         }
-        */
+        std::vector<std::shared_ptr<ItemInface>> items;
+        for (int i = 0; i < keypoints.size(); i++)
+            items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
+        ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
 
+        auto res = tree.find(tree.root->rect);
+
+        test_tree_find(tree, descriptors);
+        test_surf_gen();
+        tree.print();
+    }
+*/
+
+void add_items()
+{
     auto points = from_txt();
     std::vector<std::shared_ptr<ItemInface>> items;
     for (int i = 0; i < points.size(); i++)
         items.push_back(std::make_shared<ItemObject>(points[i], "name" + std::to_string(i)));
+}
 
-    BlockMapResource quadTree("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
-    auto map_center = quadTree.get_abs_origin();
-    auto r2 = map_center - quadTree.get_min_rect().tl();
-    auto r = r2 + cv::Point(-6465, -6622);
-    auto r3 = r2 + cv::Point(-6465, -6622) * 1.5;
-    std::cout << r2.x << ", " << r2.y << std::endl;
-    std::cout << r.x << ", " << r.y << std::endl;
-    std::cout << r3.x << ", " << r3.y << std::endl;
-
-    auto m = cv::imread("C:/Users/XiZhu/source/repos/tianli.RealSky/test/gen_map/overlay/Tex_0232_0~6.png", -1);
-    cv::resize(m, m, cv::Size(), 2, 2);
-
-    auto map_a = quadTree.view();
-    auto map_black = map_a(cv::Rect(0, map_a.rows - 2048 * 3, 2048 * 6, 2048 * 3));
+void add_overlay(BlockMapResource &quadTree, cv::Mat &map, std::string &overlays_json)
+{
+    auto overlays = from_json_overlay(overlays_json);
+    tranf_overlays(overlays);
+    auto sizes = size_of_overlays(overlays);
+    auto ref_map_rect = cv::Rect(0, map.rows - 2048 * 3, 2048 * 6, 2048 * 3);
+    auto map_black = map(ref_map_rect);
+    auto res = pack(sizes, ref_map_rect.size());
     for (auto &overlay : overlays)
     {
-        // map_a(quadTree.to_abs(overlay.rect())).copyTo();
-        std::cout << overlay.rect() << quadTree.abs(overlay.rect()) << std::endl;
-        auto map_bound = map_a(quadTree.abs(overlay.rect()));
+        auto map_bound = map(quadTree.abs(overlay.rect()));
         rbg_add_rgba(map_bound, overlay.image);
-        // overlay.image.copyTo(map_a(quadTree.abs(overlay.rect())));
         if (res.find(overlay.image.size()) != res.end())
         {
             auto rect = res[overlay.image.size()];
             auto map_bound = map_black(rect);
-            // overlay.image.copyTo(map_a(rect));
             rbg_add_rgba(map_bound, overlay.image);
         }
         else
@@ -380,56 +231,78 @@ int main(int argc, char *argv[])
             std::cout << "not found" << std::endl;
         }
     }
+}
 
-    cv::imwrite("map_a.png", map_a);
-
-    auto map = quadTree.view(cv::Rect2d(cv::Point(-6465, -6622) * 1.5, m.size()));
-
-    cv::cvtColor(m, m, cv::COLOR_BGRA2BGR);
-    cv::addWeighted(map, 0.5, m, 0.5, 0, map);
-
-    auto max_rect = get_max_rect(quadTree); // cv::Rect2d(quadTree.get_min_rect());
-    auto origin = cv::Rect2d(quadTree.get_min_rect()).tl() - cv::Point2d(map_center);
-
-    ItemSetTree tree(max_rect, items);
+void add_city(BlockMapResource &quadTree, cv::Mat &map, std::string &citys_json)
+{
+    auto citys = from_json_city(citys_json);
+    // citys = tranf_citys(citys);
+    for (auto &city : citys)
     {
-        track_timer timer("find rect(2000,2000)");
-        auto result = tree.find_childs(cv::Rect2d(-1000, -1000, 2000, 2000));
-        auto map = quadTree.view(cv::Rect2d(-1000, -1000, 2000, 2000));
-        for (auto &node : result)
+        auto rect = quadTree.abs(cv::Rect(city.rect().tl() * 1.5, city.rect().size()));
+        auto city_map = map(rect);
+        cv::resize(city_map, city.image_resize, cv::Size(), 2, 2);
+
+        cv::imwrite("city/" + utf8_to_gbk(city.name) + ".png", city.image_resize);
+    }
+    auto sizes = size_of_citys(citys);
+
+    auto ref_map_rect = cv::Rect(map.cols - 2048 * 5, 0, 2048 * 5, 2048 * 2);
+    auto map_black = map(ref_map_rect);
+    auto res = pack(sizes, ref_map_rect.size());
+    for (auto &city : citys)
+    {
+        if (res.find(city.image_resize.size()) != res.end())
         {
-            auto scale = 1.5;
-            for (auto &item : node->items)
-            {
-                auto item_pos = item->pos() * scale - cv::Point2d(-1000, -1000);
-                cv::circle(map, item_pos, 10, cv::Scalar(0, 0, 255), 4);
-            }
-            auto node_rect = cv::Rect2d(node->rect.tl() * scale - cv::Point2d(-1000, -1000), cv::Size2d(node->rect.width * scale, node->rect.height * scale));
-            cv::rectangle(map, node_rect, cv::Scalar(0, 255, 0), 1);
+            auto rect = res[city.image_resize.size()];
+            auto map_bound = map_black(rect);
+            rbg_add_rgba(map_bound, city.image_resize);
+        }
+        else
+        {
+            std::cout << "not found" << std::endl;
         }
     }
+
+    json::value json;
+    json["city_ref"] = json::array();
+    for (auto &city : citys)
     {
-        track_timer timer("find max_rect");
-        auto result = tree.find_childs(max_rect);
-        for (auto &node : result)
+        if (res.find(city.image_resize.size()) != res.end())
         {
-            auto scale = 1.5;
-            for (auto &item : node->items)
-            {
-                auto item_pos = item->pos() * scale - origin;
-                cv::circle(map, item_pos, 10, cv::Scalar(0, 0, 255), 4);
-            }
-            auto node_rect = cv::Rect2d(node->rect.tl() * scale - origin, cv::Size2d(node->rect.width * scale, node->rect.height * scale));
-            cv::rectangle(map, node_rect, cv::Scalar(0, 255, 0), 1);
+            auto ref_rect = quadTree.abs(cv::Rect(city.rect().tl() * 1.5, city.rect().size()));
+            auto map_rect = res[city.image_resize.size()] + ref_map_rect.tl();
+            json["city_ref"].as_array().push_back(json::object{
+                {"name", city.name},
+                {"path", city.path},
+                {"map_rect", json::array{map_rect.x, map_rect.y, map_rect.width, map_rect.height}},
+                {"map_ref_rect", json::array{ref_rect.x, ref_rect.y, ref_rect.width, ref_rect.height}},
+                {"ref_to_rect_scale", 2.0},
+                {"base_size", 2048}});
         }
     }
-    {
+    cv::imwrite("mapcity.png", map_black);
+    std::ofstream out("city_ref.json");
+    out << json;
+    out.close();
+}
 
-        track_timer timer("asd");
-        auto map = quadTree.view(cv::Rect2d(-1000, -1000, 2000, 2000));
-    }
+#include <opencv2/core/utils/logger.hpp>
+int main(int argc, char *argv[])
+{
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
 
-    // gen_surf(quadTree);
+    std::string overlays_json = "./overlay/web-map.json";
+    std::string citys_json = "./city/citys.json5";
+
+    //
+    BlockMapResource quadTree("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
+    //
+    auto map = quadTree.view();
+    add_city(quadTree, map, citys_json);
+    cv::imwrite("map_b.png", map);
+    add_overlay(quadTree, map, overlays_json);
+    cv::imwrite("map_a.png", map);
 
     return 0;
 }
