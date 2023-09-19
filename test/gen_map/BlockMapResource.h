@@ -54,7 +54,22 @@ class BlockMapResource
 public:
     BlockMapResource() = default;
     BlockMapResource(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
-        : map_origin(map_origin), origin_index(origin_index)
+        : map_origin(map_origin), origin_index(origin_index){}
+    ~BlockMapResource() = default;
+
+public:
+    void set_origin_index(cv::Point origin_index)
+    {
+        origin_index = origin_index;
+        origin = blocks[origin_index].rect.tl() + cv::Point(1024, 1024);
+    }
+    void set_map_origin(cv::Point map_origin) { map_origin = map_origin; }
+    cv::Point get_abs_origin() { return abs_origin(); }
+    cv::Rect get_min_rect() { return min_rect; }
+    cv::Rect abs(const cv::Rect &r) { return r - min_rect.tl() + abs_origin(); }
+
+public:
+    void load(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
     {
         if (std::filesystem::exists(path) == false)
             return; // 文件夹不存在
@@ -72,24 +87,6 @@ public:
         if (blocks.find(origin_index) == blocks.end())
             return; // 原点图片不存在
         origin = blocks[origin_index].rect.tl() + cv::Point(1024, 1024);
-    }
-    ~BlockMapResource() = default;
-
-public:
-    void set_origin_index(cv::Point origin_index)
-    {
-        origin_index = origin_index;
-        origin = blocks[origin_index].rect.tl() + cv::Point(1024, 1024);
-    }
-    void set_map_origin(cv::Point map_origin) { map_origin = map_origin; }
-    cv::Point get_abs_origin() { return abs_origin(); }
-    cv::Rect get_min_rect() { return min_rect; }
-    cv::Rect abs(const cv::Rect &r) { return r - min_rect.tl() + abs_origin(); }
-
-public:
-    void load(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
-    {
-        *this = BlockMapResource(path, target_name, map_origin, origin_index);
     }
     void insert(const cv::Mat &image, const cv::Point &index)
     {

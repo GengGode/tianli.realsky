@@ -353,4 +353,48 @@ public:
         std::cout << "node count: " << count << std::endl;
         std::cout << "max depth: " << max_depth << std::endl;
     }
+
+    void load(const std::string &path, cv::Point2d offset)
+    {
+        std::vector<cv::Point2d> points;
+        std::ifstream in(path);
+        std::string str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        auto json_res = json::parse(str);
+        if (json_res.has_value() == false)
+        {
+            return;
+        }
+        auto json = json_res.value();
+        auto type = json.type();
+        auto array = json.as_array();
+        std::vector<std::shared_ptr<ItemInface>> items;
+
+        auto scale = 1.5;
+        for (auto &item : array)
+        {
+            auto position_str = item["position"].as_string();
+            auto title_str = item["markerTitle"].as_string();
+            double x = offset.x + scale * std::stod(position_str.substr(0, position_str.find(",")));
+            double y = offset.y + scale * std::stod(position_str.substr(position_str.find(",") + 1));
+            points.push_back(cv::Point2d(x, y));
+            items.push_back(std::make_shared<ItemObject>(cv::Point2d(x, y), title_str));
+        }
+        cv::Rect2d rect = std::accumulate(points.begin(), points.end(), cv::Rect2d(points[0], points[0]), [](cv::Rect2d rect, cv::Point2d point)
+                                          {
+            if (point.x < rect.x)
+                rect.x = point.x;
+            if (point.y < rect.y)
+                rect.y = point.y;
+            if (point.x > rect.br().x)
+                rect.width = point.x - rect.x;
+            if (point.y > rect.br().y)
+                rect.height = point.y - rect.y;
+            return rect; });
+
+        root = std::make_shared<Node>();
+        root->rect = rect;
+        root->center = rect.tl() + cv::Point2d(rect.width / 2.0, rect.height / 2.0);
+        for (auto &item : items)
+            root->insert(item);
+    }
 };

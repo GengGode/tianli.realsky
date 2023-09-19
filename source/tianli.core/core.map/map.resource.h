@@ -38,6 +38,7 @@ public:
     void set_map_origin(cv::Point map_origin) { map_origin = map_origin; }
     cv::Point get_abs_origin() { return abs_origin(); }
     cv::Rect get_min_rect() { return min_rect; }
+    cv::Rect abs(const cv::Rect &r) { return r - min_rect.tl() + abs_origin(); }
 
 public:
     void load(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)

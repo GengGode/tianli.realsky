@@ -296,7 +296,8 @@ int main(int argc, char *argv[])
     std::string citys_json = "./city/citys.json5";
 
     //
-    BlockMapResource quadTree("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
+    BlockMapResource quadTree;
+    quadTree.load("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
     //
     auto map = quadTree.view();
     add_city(quadTree, map, citys_json);
