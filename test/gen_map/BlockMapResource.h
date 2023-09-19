@@ -54,7 +54,7 @@ class BlockMapResource
 public:
     BlockMapResource() = default;
     BlockMapResource(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
-        : map_origin(map_origin), origin_index(origin_index){}
+        : map_origin(map_origin), origin_index(origin_index) {}
     ~BlockMapResource() = default;
 
 public:
@@ -71,6 +71,8 @@ public:
 public:
     void load(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
     {
+        this->map_origin = map_origin;
+        this->origin_index = origin_index;
         if (std::filesystem::exists(path) == false)
             return; // 文件夹不存在
 

@@ -9,18 +9,6 @@
 #include <opencv2/opencv.hpp>
 #include "map.inface.h"
 
-namespace std
-{
-    template <>
-    struct less<cv::Point>
-    {
-        bool operator()(const cv::Point &a, const cv::Point &b) const
-        {
-            return a.x < b.x || (a.x == b.x && a.y < b.y);
-        }
-    };
-} // namespace std
-
 class MapResource : public MapImageInface
 {
 public:
@@ -43,6 +31,8 @@ public:
 public:
     void load(const std::filesystem::path &path, std::string target_name, cv::Point map_origin, cv::Point origin_index)
     {
+        this->map_origin = map_origin;
+        this->origin_index = origin_index;
         if (std::filesystem::exists(path) == false)
             return; // 文件夹不存在
 
