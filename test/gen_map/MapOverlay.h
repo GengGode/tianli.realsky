@@ -5,8 +5,8 @@
 #include <fstream>
 #include <chrono>
 
-#include "RectSort.h"
-#include "utils.image.h"
+#include "../../source/tianli.core/core.map/map.combiner.h"
+#include "../../source/tianli.utils/utils.operation.image.h"
 
 struct overlay_info
 {

@@ -6,8 +6,9 @@
 #include <QWheelEvent>
 #include <QTimer>
 #include <QDebug>
-#include "../../tianli.utils/utils.image.h"
-#include "../../tianli.utils/utils.string.h"
+#include "../../tianli.utils/utils.operation.image.h"
+#include "../../tianli.utils/utils.convect.image.h"
+#include "../../tianli.utils/utils.convect.string.h"
 
 MapView::MapView(QWidget *parent) : QWidget(parent)
 {

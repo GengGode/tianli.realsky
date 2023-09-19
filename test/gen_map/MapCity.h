@@ -6,9 +6,9 @@
 #include <chrono>
 #include <iostream>
 
-#include "RectSort.h"
-#include "utils.image.h"
-#include "utils.convect.string.h"
+#include "../../source/tianli.core/core.map/map.combiner.h"
+#include "../../source/tianli.utils/utils.operation.image.h"
+#include "../../source/tianli.utils/utils.convect.string.h"
 
 struct city_info
 {
@@ -61,7 +61,7 @@ std::vector<city_info> from_json_city(std::string json_file)
             {
                 std::cout << path << " not exists" << std::endl;
             }
-            std::cout << utf8_to_gbk(area["name"].as_string()) << std::endl;
+            std::cout << utils::utf8_to_gbk(area["name"].as_string()) << std::endl;
         }
     }
     return citys;

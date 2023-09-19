@@ -1,6 +1,6 @@
 #include <iostream>
-#include "BlockMapResource.h"
-#include "MapItemSet.h"
+#include "../../source/tianli.core/core.map/map.resource.h"
+#include "../../source/tianli.core/core.map/item.set.h"
 #include "MapOverlay.h"
 #include "MapCity.h"
 #include <direct.h> // add this header file
@@ -88,23 +88,7 @@ std::vector<cv::Point2d> from_json(std::string json_file)
     return points;
 }
 
-cv::Rect2d get_max_rect(BlockMapResource &quadTree)
-{
-    auto map_center = quadTree.get_abs_origin();
-    auto map_rect = quadTree.get_min_rect();
-    // 根据地图的中心点和地图的最小矩形，分割为四个矩形
-    auto map_rect_top_left = cv::Rect2d(map_rect.x, map_rect.y, map_center.x - map_rect.x, map_center.y - map_rect.y);
-    auto map_rect_top_right = cv::Rect2d(map_center.x, map_rect.y, map_rect.x + map_rect.width - map_center.x, map_center.y - map_rect.y);
-    auto map_rect_bottom_left = cv::Rect2d(map_rect.x, map_center.y, map_center.x - map_rect.x, map_rect.y + map_rect.height - map_center.y);
-    auto map_rect_bottom_right = cv::Rect2d(map_center.x, map_center.y, map_rect.x + map_rect.width - map_center.x, map_rect.y + map_rect.height - map_center.y);
-    // 获取最大半径
-    std::vector<double> rect_radius = {map_rect_top_left.width, map_rect_top_left.height, map_rect_top_right.width, map_rect_top_right.height, map_rect_bottom_left.width, map_rect_bottom_left.height, map_rect_bottom_right.width, map_rect_bottom_right.height};
-    auto max_radius = *std::max_element(rect_radius.begin(), rect_radius.end());
-    int max_radius_int = static_cast<int>(std::round(max_radius));
-    return cv::Rect2d(-max_radius_int, -max_radius_int, max_radius_int * 2, max_radius_int * 2);
-}
-
-void gen_surf(BlockMapResource &quadTree)
+void gen_surf(MapResource &quadTree)
 {
 
     track_timer timer;
@@ -144,7 +128,7 @@ void test_surf_gen()
     std::cout << "surf gen avg time : " << time << std::endl;
 }
 
-void test_tree_find(ItemSetTree &tree, cv::Mat &descriptors)
+void test_tree_find(MapSet &tree, cv::Mat &descriptors)
 {
     cv::Rect2d rand_rect; // = cv::Rect2d(-1000, -1000, 400, 400);
 
@@ -190,7 +174,7 @@ void test_tree_find(ItemSetTree &tree, cv::Mat &descriptors)
         std::vector<std::shared_ptr<ItemInface>> items;
         for (int i = 0; i < keypoints.size(); i++)
             items.push_back(std::make_shared<KeyPointObject>(keypoints[i], i));
-        ItemSetTree tree(cv::Rect(0, 0, 40000, 40000), items);
+        MapSet tree(cv::Rect(0, 0, 40000, 40000), items);
 
         auto res = tree.find(tree.root->rect);
 
@@ -208,7 +192,7 @@ void add_items()
         items.push_back(std::make_shared<ItemObject>(points[i], "name" + std::to_string(i)));
 }
 
-void add_overlay(BlockMapResource &quadTree, cv::Mat &map, std::string &overlays_json)
+void add_overlay(MapResource &quadTree, cv::Mat &map, std::string &overlays_json)
 {
     auto overlays = from_json_overlay(overlays_json);
     tranf_overlays(overlays);
@@ -219,12 +203,12 @@ void add_overlay(BlockMapResource &quadTree, cv::Mat &map, std::string &overlays
     for (auto &overlay : overlays)
     {
         auto map_bound = map(quadTree.abs(overlay.rect()));
-        rbg_add_rgba(map_bound, overlay.image);
+        utils::rbg_add_rgba(map_bound, overlay.image);
         if (res.find(overlay.image.size()) != res.end())
         {
             auto rect = res[overlay.image.size()];
             auto map_bound = map_black(rect);
-            rbg_add_rgba(map_bound, overlay.image);
+            utils::rbg_add_rgba(map_bound, overlay.image);
         }
         else
         {
@@ -233,7 +217,7 @@ void add_overlay(BlockMapResource &quadTree, cv::Mat &map, std::string &overlays
     }
 }
 
-void add_city(BlockMapResource &quadTree, cv::Mat &map, std::string &citys_json)
+void add_city(MapResource &quadTree, cv::Mat &map, std::string &citys_json)
 {
     auto citys = from_json_city(citys_json);
     // citys = tranf_citys(citys);
@@ -243,7 +227,7 @@ void add_city(BlockMapResource &quadTree, cv::Mat &map, std::string &citys_json)
         auto city_map = map(rect);
         cv::resize(city_map, city.image_resize, cv::Size(), 2, 2);
 
-        cv::imwrite("city/" + utf8_to_gbk(city.name) + ".png", city.image_resize);
+        cv::imwrite("city/" + utils::utf8_to_gbk(city.name) + ".png", city.image_resize);
     }
     auto sizes = size_of_citys(citys);
 
@@ -256,7 +240,7 @@ void add_city(BlockMapResource &quadTree, cv::Mat &map, std::string &citys_json)
         {
             auto rect = res[city.image_resize.size()];
             auto map_bound = map_black(rect);
-            rbg_add_rgba(map_bound, city.image_resize);
+            utils::rbg_add_rgba(map_bound, city.image_resize);
         }
         else
         {
@@ -296,8 +280,10 @@ int main(int argc, char *argv[])
     std::string citys_json = "./city/citys.json5";
 
     //
-    BlockMapResource quadTree;
+    MapResource quadTree;
     quadTree.load("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
+    cv::imshow("map", quadTree.view(cv::Rect(-100, -100, 200, 200)));
+    cv::waitKey(1);
     //
     auto map = quadTree.view();
     add_city(quadTree, map, citys_json);

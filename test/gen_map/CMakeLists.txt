@@ -5,7 +5,7 @@ set(OpenCV_DIR "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/lib")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(${PROJECT_NAME} main.cpp  BlockMapResource.h) 
+add_executable(${PROJECT_NAME} main.cpp) 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
 # copy map/*.png to exe folder

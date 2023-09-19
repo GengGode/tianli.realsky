@@ -3,8 +3,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 
 set(src_utils 
-tianli.utils/utils.image.h
-tianli.utils/utils.string.h
+tianli.utils/utils.operation.image.h
+tianli.utils/utils.convect.image.h
+tianli.utils/utils.convect.string.h
 )
 
 add_executable(${PROJECT_NAME} 
@@ -36,9 +37,6 @@ set(Qt5_DIR "${ThridPatryDir}/${Qt5VER}/lib/cmake/Qt5")
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
 target_link_libraries(${PROJECT_NAME}  Qt5::Core Qt5::Gui Qt5::Widgets)
 # qt5 plugins qwindows
-set(QT_PLUGINS_DIR "${ThridPatryDir}/${Qt5VER}/plugins")
-target_link_libraries(${PROJECT_NAME}  "${QT_PLUGINS_DIR}/platforms/qwindowsd.lib")
-target_link_libraries(${PROJECT_NAME}  "${QT_PLUGINS_DIR}/styles/qwindowsvistastyled.lib")
 
 
 set(OpenCV_DIR "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/lib")
