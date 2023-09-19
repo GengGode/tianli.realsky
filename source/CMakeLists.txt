@@ -30,7 +30,7 @@ set_target_properties(${PROJECT_NAME}  PROPERTIES COMPILE_FLAGS "/MTd")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_BUILD_TYPE "Debug")
 #set(Qt5VER "qt-5.15.2-static-release-only")
-set(Qt5VER "qt-5.15.2-static")
+set(Qt5VER "qt-5.15.2-lite-release-static")
 # qt5
 set(Qt5_DIR "${ThridPatryDir}/${Qt5VER}/lib/cmake/Qt5")
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
