@@ -28,7 +28,7 @@ jobs:
       run: | 
         dir ${{github.workspace}}
         dir ${{github.workspace}}/third_party
-        dir ${{github.workspace}}/third_party/openv-xfeatures2d-shared-world
+        dir ${{github.workspace}}/third_party/opencv-xfeatures2d-shared-world
         cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
