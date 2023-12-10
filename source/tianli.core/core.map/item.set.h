@@ -311,8 +311,8 @@ public:
             cv::circle(img, node->center / scale + pos_offset, 1, cv::Scalar(0, depth * 8, 255), 1, cv::LINE_AA);
             for (auto &item : node->items)
                 cv::circle(img, item->pos() / scale + pos_offset, 1, cv::Scalar(0, 255, depth * 8), 1, cv::LINE_AA);
-            cv::imshow("tree", img);
-            cv::waitKey(1);
+            // cv::imshow("tree", img);
+            // cv::waitKey(1);
         };
         print_node(root, 0);
 

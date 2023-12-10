@@ -345,8 +345,8 @@ void show(std::map<cv::Size, cv::Rect> result, cv::Size limit_size)
     }
     cv::rectangle(img, max_rect, cv::Scalar(0, 0, 255), 10);
     cv::resize(img, img, cv::Size(), 0.1, 0.1);
-    cv::imshow("img", img);
-    cv::waitKey(000);
+    // cv::imshow("img", img);
+    // cv::waitKey(000);
 }
 
 std::map<cv::Size, cv::Rect> pack(std::vector<cv::Size> &objs, cv::Size limit_size)

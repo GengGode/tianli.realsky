@@ -25,7 +25,7 @@ void tianli_init(int argc, char *argv[])
     {
         // auto id = QFontDatabase::addApplicationFont(":/font/resource/font/UIDFont.ttf");
         // if (id == -1)
-        qDebug() << "Failed to load font.";
+        //     qDebug() << "Failed to load font.";
     }
     catch (const std::exception &e)
     {

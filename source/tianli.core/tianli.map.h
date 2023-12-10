@@ -2,7 +2,7 @@
 
 #include "core.map/item.set.h"
 #include "core.map/map.resource.h"
-
+#include <chrono>
 class Map
 {
 public:
@@ -10,20 +10,30 @@ public:
     {
         // set
         set = std::make_shared<MapSet>();
-        // set->load("./item/item_all.json", cv::Point(232, 216));
+        set->load("./item/item_all.json", cv::Point(232, 216));
+        std::cout << "item size: " << set->root->sizes() << std::endl;
         // resource
         resource = std::make_shared<MapResource>();
         resource->load("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
+
+        // test
+        auto start = std::chrono::system_clock::now();
+        for (int i = 0; i < 10000; i++)
+            auto rs = set->find(cv::Rect(1000, 100, 300, 300));
+
+        auto end = std::chrono::system_clock::now();
+        std::cout << "find time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
     }
     ~Map() = default;
 
 public:
-    cv::Mat view(const MapSprite& sprite)
+    cv::Mat view(const MapSprite &sprite)
     {
         auto width = sprite.size.width / sprite.scale;
         auto height = sprite.size.height / sprite.scale;
 
         auto rect = cv::Rect2d(sprite.pos.x - width * 0.5, sprite.pos.y - height * 0.5, width, height);
+
         //  auto rs = set->find(rect);
         auto viewer = resource->view(rect).clone();
         cv::resize(viewer, viewer, sprite.size);
@@ -36,9 +46,9 @@ public:
     }
     void set_mask(cv::Mat mask)
     {
-         std::vector<cv::Mat> mask_layers;
-         cv::split(mask, mask_layers);
-         this->mask = mask_layers.back();
+        std::vector<cv::Mat> mask_layers;
+        cv::split(mask, mask_layers);
+        this->mask = mask_layers.back();
     }
 
     cv::Mat merge_tranform(cv::Mat src, cv::Mat mask)

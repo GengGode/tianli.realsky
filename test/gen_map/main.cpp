@@ -282,8 +282,8 @@ int main(int argc, char *argv[])
     //
     MapResource quadTree;
     quadTree.load("./map/", "MapBack", cv::Point(232, 216), cv::Point(-1, 0));
-    cv::imshow("map", quadTree.view(cv::Rect(-100, -100, 200, 200)));
-    cv::waitKey(1);
+    // cv::imshow("map", quadTree.view(cv::Rect(-100, -100, 200, 200)));
+    // cv::waitKey(1);
     //
     auto map = quadTree.view();
     add_city(quadTree, map, citys_json);

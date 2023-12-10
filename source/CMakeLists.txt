@@ -17,6 +17,9 @@ tianli.ui/tianli.window.h
 tianli.ui/tianli.window.cpp 
 tianli.ui/tianli.window.ui 
 tianli.ui/tianli.window.qrc
+#tianli.ui/form/tianli.map.h
+#tianli.ui/form/tianli.map.cpp
+#tianli.ui/form/tianli.map.ui
 tianli.ui/form/mapview.h
 tianli.ui/form/mapview.cpp
 tianli.ui/form/mapview.ui
@@ -26,7 +29,7 @@ tianli.ui/form/mapview.ui
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # set msvc runtime  as multi-threaded
-set_target_properties(${PROJECT_NAME}  PROPERTIES COMPILE_FLAGS "/MTd")
+set_target_properties(${PROJECT_NAME}  PROPERTIES COMPILE_FLAGS "/MT")
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_BUILD_TYPE "Debug")
@@ -39,29 +42,10 @@ target_link_libraries(${PROJECT_NAME}  Qt5::Core Qt5::Gui Qt5::Widgets)
 # qt5 plugins qwindows
 
 
-set(OpenCV_DIR "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/lib")
+set(OpenCV_DIR "${ThridPatryDir}/opencv-xfeatures2d-release-static/x64/vc17/staticlib")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
-
-# copy map/*.png to exe folder
-#add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#        COMMAND ${CMAKE_COMMAND} -E copy_directory
-#        "${CMAKE_CURRENT_SOURCE_DIR}/map/"
-#        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/map")
-
-# copy dll to exe folder
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/bin/opencv_world480d.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
-else()
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${ThridPatryDir}/opencv-xfeatures2d-shared-world/x64/vc17/bin/opencv_world480.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
-endif()
 
 #add_subdirectory(tianli.ui.resources)
 
